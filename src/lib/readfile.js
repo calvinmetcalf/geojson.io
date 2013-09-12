@@ -1,5 +1,6 @@
 var topojson = require('topojson'),
     toGeoJSON = require('togeojson'),
+    shp = require('shpjs'),
     osm2geojson = require('osm-and-geojson').osm2geojson;
 
 module.exports.readDrop = readDrop;
@@ -19,10 +20,8 @@ function readDrop(callback) {
 function readFile(f, callback) {
 
     var reader = new FileReader();
-
+    var fileType = detectType(f);
     reader.onload = function(e) {
-
-        var fileType = detectType(f);
 
         if (!fileType) {
             return callback({
@@ -81,11 +80,23 @@ function readFile(f, callback) {
                     return callback(null, result);
                 }
             });
+        } else if (fileType === 'zip') {
+            shp(e.target.result).then(function(result){
+                callback(null,result);
+            },function(err){
+                callback({
+                    type: 'shapefile',
+                    result: err,
+                    raw: e.target.result
+                });
+            });
         }
     };
-
-    reader.readAsText(f);
-
+    if (fileType === 'zip') {
+        reader.readAsArrayBuffer(f);
+    } else {
+        reader.readAsText(f);
+    }
     function toDom(x) {
         return (new DOMParser()).parseFromString(x, 'text/xml');
     }
@@ -104,5 +115,6 @@ function readFile(f, callback) {
             return 'dsv';
         }
         if (ext('.xml') || ext('.osm')) return 'xml';
+        if (ext('.zip')) return 'zip';
     }
 }
